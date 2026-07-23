@@ -50,15 +50,51 @@ class YoutubeDlpExtractor extends BaseExtractor {
 
     async stream(info) {
         const ytdl = require('youtube-dl-exec');
-        // Obligamos a que devuelva un formato Opus nativo en WebM, ya que si es mp4/m4a el bot sin ffmpeg crasheará.
-        const streamUrl = await ytdl(info.url, {
-            getUrl: true,
-            f: 'bestaudio[ext=webm+acodec=opus+asr=48000]/bestaudio[ext=webm+acodec=opus]/bestaudio',
-            noWarnings: true,
-            callHome: false
-        });
+        if (!info.url) throw new Error("No URL provided");
         
-        return typeof streamUrl === 'string' ? streamUrl.trim() : streamUrl;
+        console.log("Resolviendo URL directa con yt-dlp...");
+        
+        try {
+            const streamUrl = await ytdl(info.url, {
+                getUrl: true,
+                f: 'bestaudio[ext=webm][acodec=opus]/bestaudio[ext=webm]/bestaudio',
+                noWarnings: true,
+                callHome: false
+            });
+
+            if (!streamUrl) throw new Error("No se pudo obtener URL del stream");
+            console.log("URL obtenida. Creando stream HTTP para discord-player...");
+            
+            const https = require('https');
+            
+            return new Promise((resolve, reject) => {
+                const req = https.get(streamUrl.trim(), (res) => {
+                    if (res.statusCode >= 400) {
+                        reject(new Error(`HTTP Error ${res.statusCode}`));
+                        return;
+                    }
+                    console.log("Stream HTTP conectado. Reproduciendo...");
+                    
+                    // Al retornar este formato, le decimos a discord-player que es WebM/Opus nativo,
+                    // lo cual salta completamente FFmpeg y usa 0% de CPU para recodificar.
+                    resolve({
+                        $fmt: 'webm/opus',
+                        stream: res
+                    });
+                }).on('error', (err) => {
+                    console.error("HTTP stream request error:", err);
+                    reject(err);
+                });
+                
+                req.setTimeout(10000, () => {
+                    req.abort();
+                    reject(new Error("Timeout al conectar al stream HTTP"));
+                });
+            });
+        } catch (e) {
+            console.error("Error en stream():", e);
+            throw e;
+        }
     }
 }
 
