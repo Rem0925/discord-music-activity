@@ -22,11 +22,11 @@ const MOCK_USERS = [
 ];
 
 const SEARCH_RESULTS_MOCK: Track[] = [
-  { title: 'Levitating', author: 'Dua Lipa', url: 'https://www.youtube.com/watch?v=TUVcZfQe-Kw', thumbnail: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500&auto=format&fit=crop&q=80' },
-  { title: 'As It Was', author: 'Harry Styles', url: 'https://www.youtube.com/watch?v=H5v3kku4y6Q', thumbnail: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=500&auto=format&fit=crop&q=80' },
-  { title: 'Save Your Tears', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=XXYlFuWEuKI', thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80' },
-  { title: 'Blinding Lights', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=4NRXx6U8ABQ', thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80' },
-  { title: 'Starboy (feat. Daft Punk)', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=34Na4j8AVgA', thumbnail: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=600&auto=format&fit=crop&q=80' }
+  { title: 'Levitating', author: 'Dua Lipa', url: 'https://www.youtube.com/watch?v=TUVcZfQe-Kw' },
+  { title: 'As It Was', author: 'Harry Styles', url: 'https://www.youtube.com/watch?v=H5v3kku4y6Q' },
+  { title: 'Save Your Tears', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=XXYlFuWEuKI' },
+  { title: 'Blinding Lights', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=4NRXx6U8ABQ' },
+  { title: 'Starboy (feat. Daft Punk)', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=34Na4j8AVgA' }
 ];
 
 const Icons = {
@@ -61,6 +61,11 @@ const Icons = {
   Heart: ({ filled }: { filled: boolean }) => (
     <svg className={`w-5 h-5 ${filled ? 'fill-pink-500 text-pink-500' : 'fill-none stroke-current text-gray-300'}`} viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.684a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+    </svg>
+  ),
+  MusicNote: () => (
+    <svg className="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 .895-2 3-2 3 .895 3 2zm12 0c0 1.105-1.343 2-3 2s-3-.895-3-2 .895-2 3-2 3 .895 3 2zM9 10l12-3" />
     </svg>
   )
 };
@@ -226,10 +231,10 @@ export default function App() {
       sock.on('song_lyrics', (text: string | null) => {
         if (text && text !== "No se encontraron letras" && text !== "No se encontraron letras para esta canción." && text !== "Buscando letras...") {
           setLyrics(text);
-          setRightPanelTab('lyrics'); // Se queda / cambia a letras si se encuentran
+          setRightPanelTab('lyrics');
         } else if (text === "No se encontraron letras" || text === "No se encontraron letras para esta canción.") {
           setLyrics(null);
-          setRightPanelTab('search'); // Cambia al buscador automáticamente si no se encuentran
+          setRightPanelTab('search');
         } else {
           setLyrics(text);
         }
@@ -312,7 +317,7 @@ export default function App() {
     }
   };
 
-  // Filtrado de resultados (combina los que vienen del socket con los mock de fallback)
+  // Resultados de búsqueda
   const displayedSearchResults = searchResults.length > 0
     ? searchResults
     : (searchQuery.trim() !== ''
@@ -462,13 +467,15 @@ export default function App() {
           {/* Dynamic Content Panel */}
           <div className="flex-1 overflow-y-auto p-6 relative">
             
-            {/* TAB: LYRICS */}
+            {/* TAB: LYRICS (Alineado al principio para ver el texto desde arriba) */}
             {rightPanelTab === 'lyrics' && (
-              <div className="h-full flex flex-col justify-center items-center text-center space-y-6 max-w-xl mx-auto py-8 overflow-y-auto">
+              <div className="h-full flex flex-col justify-start items-center max-w-2xl mx-auto py-4 overflow-y-auto">
                 {lyrics ? (
-                  <pre className="whitespace-pre-wrap font-sans text-base sm:text-lg font-medium leading-relaxed text-indigo-200 drop-shadow-[0_0_12px_rgba(129,140,248,0.4)]">
-                    {lyrics}
-                  </pre>
+                  <div className="w-full bg-black/30 border border-white/5 rounded-2xl p-6 shadow-inner">
+                    <pre className="whitespace-pre-wrap font-sans text-base sm:text-lg font-medium leading-relaxed text-indigo-200 text-center drop-shadow-[0_0_12px_rgba(129,140,248,0.4)]">
+                      {lyrics}
+                    </pre>
+                  </div>
                 ) : (
                   <div className="my-auto text-gray-500 text-sm italic">
                     Cargando o buscando letras sincronizadas...
@@ -493,9 +500,6 @@ export default function App() {
                         <span className="w-5 text-center font-bold text-xs text-indigo-400">
                           {idx + 1}
                         </span>
-                        {track.thumbnail && (
-                          <img src={track.thumbnail} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
-                        )}
                         <div className="truncate">
                           <p className="text-sm font-semibold text-gray-200 truncate">
                             {track.title}
@@ -528,7 +532,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB: SEARCH */}
+            {/* TAB: SEARCH (Sin fotos en recomendaciones) */}
             {rightPanelTab === 'search' && (
               <div className="space-y-4 max-w-3xl mx-auto">
                 <div className="flex gap-2">
@@ -564,9 +568,9 @@ export default function App() {
                       className="flex items-center justify-between p-3 hover:bg-white/5 border-b border-white/5 transition rounded-xl"
                     >
                       <div className="flex items-center space-x-3 overflow-hidden">
-                        {track.thumbnail && (
-                          <img src={track.thumbnail} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
-                        )}
+                        <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex-shrink-0">
+                          <Icons.MusicNote />
+                        </div>
                         <div className="truncate">
                           <p className="text-sm font-semibold text-gray-200 truncate">{track.title}</p>
                           <p className="text-xs text-gray-400 truncate">{track.author}</p>
@@ -591,8 +595,8 @@ export default function App() {
 
       </div>
 
-      {/* Bottom Integrated Controls Bar (Línea de tiempo no interactuable, sin volumen) */}
-      <footer className="relative z-20 bg-[#0d0f17]/95 border-t border-white/10 px-6 py-3 flex items-center justify-between gap-6">
+      {/* Bottom Integrated Controls Bar (Perfectamente Centrado) */}
+      <footer className="relative z-20 bg-[#0d0f17]/95 border-t border-white/10 px-6 py-3 flex items-center justify-between gap-4">
         
         {/* Left Track Info */}
         <div className="flex items-center space-x-3 w-1/3 max-w-[280px]">
@@ -609,8 +613,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center Controls & NON-INTERACTIVE Time Scrubber */}
-        <div className="flex flex-col items-center flex-1 max-w-xl space-y-1">
+        {/* Center Controls & Time Scrubber (PERFECTAMENTE CENTRADO HASTA EN PANTALLAS ANCHAS) */}
+        <div className="flex flex-col items-center justify-center flex-1 max-w-xl mx-auto space-y-1">
           <div className="flex items-center space-x-4">
             <button
               onClick={togglePause}
@@ -640,6 +644,9 @@ export default function App() {
             <span>{progress.total.label}</span>
           </div>
         </div>
+
+        {/* Right Spacer (Igual al ancho de la columna izquierda para garantizar centrado al 100%) */}
+        <div className="w-1/3 max-w-[280px] hidden sm:block pointer-events-none" />
 
       </footer>
     </div>
