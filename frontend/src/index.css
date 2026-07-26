@@ -8,5 +8,40 @@ html, body, #root {
   background-color: #0a0c12;
   color: #ffffff;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  overflow-x: hidden;
+  overflow: hidden;
+}
+
+/* Custom Styled Scrollbars for Discord Activity */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(10, 12, 18, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(79, 70, 229, 0.4);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.8);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(79, 70, 229, 0.5) rgba(10, 12, 18, 0.4);
+}
+
+/* Responsive Scaling for 720p & Low Height Screens */
+@media (max-height: 800px) {
+  .compact-art-size {
+    width: clamp(110px, 22vh, 190px) !important;
+    height: clamp(110px, 22vh, 190px) !important;
+  }
 }
