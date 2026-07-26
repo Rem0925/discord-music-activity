@@ -9,7 +9,6 @@ interface Track {
   thumbnail?: string;
   requestedBy?: { username: string; avatar: string };
   duration?: string;
-  durationSec?: number;
 }
 
 const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || 'PON_TU_CLIENT_ID_AQUI';
@@ -22,20 +21,18 @@ const MOCK_USERS = [
   { username: 'CarlosG', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' }
 ];
 
+const SEARCH_RESULTS_MOCK: Track[] = [
+  { title: 'Levitating', author: 'Dua Lipa', url: 'https://www.youtube.com/watch?v=TUVcZfQe-Kw', thumbnail: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500&auto=format&fit=crop&q=80' },
+  { title: 'As It Was', author: 'Harry Styles', url: 'https://www.youtube.com/watch?v=H5v3kku4y6Q', thumbnail: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=500&auto=format&fit=crop&q=80' },
+  { title: 'Save Your Tears', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=XXYlFuWEuKI', thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80' },
+  { title: 'Blinding Lights', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=4NRXx6U8ABQ', thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80' },
+  { title: 'Starboy (feat. Daft Punk)', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=34Na4j8AVgA', thumbnail: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=600&auto=format&fit=crop&q=80' }
+];
+
 const Icons = {
   Play: () => <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>,
   Pause: () => <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>,
   SkipNext: () => <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>,
-  VolumeMax: () => (
-    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-    </svg>
-  ),
-  VolumeMute: () => (
-    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-      <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-    </svg>
-  ),
   Search: () => (
     <svg className="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -46,11 +43,6 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
   ),
-  Mic: () => (
-    <svg className="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 016 0v6a3 3 0 01-3 3z"/>
-    </svg>
-  ),
   Trash: () => (
     <svg className="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -59,11 +51,6 @@ const Icons = {
   Discord: () => (
     <svg className="w-5 h-5 fill-current" viewBox="0 0 127.14 96.36">
       <path d="M107.7,8.07A105.15,107.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.89,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.42,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.91-72.13ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,45.92,53.87,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,45.92,96.12,53,91.08,65.69,84.69,65.69Z"/>
-    </svg>
-  ),
-  Sparkles: () => (
-    <svg className="w-3.5 h-3.5 fill-current text-yellow-400" viewBox="0 0 24 24">
-      <path d="M12 0l2.5 8.5L24 12l-9.5 3.5L12 24l-2.5-8.5L0 12l9.5-3.5z"/>
     </svg>
   ),
   Lyrics: () => (
@@ -156,8 +143,6 @@ export default function App() {
     progress: 0 
   });
 
-  const [volume, setVolume] = useState(80);
-  const [isMuted, setIsMuted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [rightPanelTab, setRightPanelTab] = useState<'lyrics' | 'queue' | 'search'>('search');
@@ -237,14 +222,14 @@ export default function App() {
         setQueue(data.tracks);
       });
 
-      // --- CAMBIO DE PESTAÑA AUTOMÁTICO SEGÚN LAS LETRAS ---
+      // --- CAMBIO AUTOMÁTICO DE PESTAÑA SEGÚN LETRAS ---
       sock.on('song_lyrics', (text: string | null) => {
         if (text && text !== "No se encontraron letras" && text !== "No se encontraron letras para esta canción." && text !== "Buscando letras...") {
           setLyrics(text);
-          setRightPanelTab('lyrics'); // Si encuentra la letra, se queda/cambia a Letras
+          setRightPanelTab('lyrics'); // Se queda / cambia a letras si se encuentran
         } else if (text === "No se encontraron letras" || text === "No se encontraron letras para esta canción.") {
           setLyrics(null);
-          setRightPanelTab('search'); // Si no la encuentra, cambia automáticamente al buscador
+          setRightPanelTab('search'); // Cambia al buscador automáticamente si no se encuentran
         } else {
           setLyrics(text);
         }
@@ -327,11 +312,12 @@ export default function App() {
     }
   };
 
-  const handleScrubberChange = (timeValueMs: number) => {
-    if (socket && guildId) {
-      socket.emit('seek_song', { guildId, timeMs: timeValueMs });
-    }
-  };
+  // Filtrado de resultados (combina los que vienen del socket con los mock de fallback)
+  const displayedSearchResults = searchResults.length > 0
+    ? searchResults
+    : (searchQuery.trim() !== ''
+        ? SEARCH_RESULTS_MOCK.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.author.toLowerCase().includes(searchQuery.toLowerCase()))
+        : SEARCH_RESULTS_MOCK);
 
   return (
     <div className="relative h-screen w-full bg-[#0a0c12] text-gray-100 font-sans flex flex-col justify-between overflow-hidden select-none">
@@ -344,54 +330,40 @@ export default function App() {
         />
       )}
 
-      {/* Edge-to-Edge Top Bar */}
+      {/* Top Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-3 bg-[#11131c]/90 border-b border-white/10 backdrop-blur-md">
         <div className="flex items-center space-x-3">
           <div className="p-2 rounded-lg bg-indigo-600/30 text-indigo-400 border border-indigo-500/30">
             <Icons.Discord />
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="font-bold text-sm sm:text-base tracking-wide text-white">
-                JamBot Player Activity
-              </h1>
-              <span className="flex items-center space-x-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>#General</span>
-              </span>
-            </div>
-          </div>
+          <h1 className="font-bold text-base tracking-wide text-white">
+            JamBot Player Activity
+          </h1>
         </div>
 
-        {/* Discord Voice / Local Users Selector */}
-        <div className="flex items-center space-x-3 bg-black/40 px-3 py-1 rounded-full border border-white/10 text-xs">
-          <Icons.Mic />
-          <span className="font-medium text-gray-400 hidden sm:inline">
-            {isMockMode ? 'Simular Usuario:' : 'Oyentes:'}
-          </span>
-          <div className="flex space-x-1">
-            {MOCK_USERS.map((u, idx) => {
-              const isSelected = user.username === u.username;
-              return (
-                <button
-                  key={idx}
-                  onClick={() => setUser(u)}
-                  className={`relative transition-all rounded-full p-0.5 border ${
-                    isSelected ? 'border-indigo-400 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
-                  title={`Simular como ${u.username}`}
-                >
-                  <img src={u.avatar} alt={u.username} className="w-6 h-6 rounded-full object-cover" />
-                  {idx === 0 && (
-                    <span className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
-                      <Icons.Sparkles />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+        {/* Local Dev User Simulator Switcher */}
+        {isMockMode && (
+          <div className="flex items-center space-x-2 bg-black/40 px-3 py-1 rounded-full border border-white/10 text-xs">
+            <span className="font-medium text-gray-400">Simular usuario:</span>
+            <div className="flex space-x-1">
+              {MOCK_USERS.map((u, idx) => {
+                const isSelected = user.username === u.username;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setUser(u)}
+                    className={`transition-all rounded-full p-0.5 border ${
+                      isSelected ? 'border-indigo-400 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                    title={`Simular como ${u.username}`}
+                  >
+                    <img src={u.avatar} alt={u.username} className="w-5 h-5 rounded-full object-cover" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </header>
 
       {/* Main Content Workspace (Continuous 2-Column Split) */}
@@ -499,7 +471,7 @@ export default function App() {
                   </pre>
                 ) : (
                   <div className="my-auto text-gray-500 text-sm italic">
-                    Buscando o cargando letras sincronizadas...
+                    Cargando o buscando letras sincronizadas...
                   </div>
                 )}
               </div>
@@ -550,7 +522,7 @@ export default function App() {
                   ))
                 ) : (
                   <div className="text-center py-12 text-gray-500 text-sm">
-                    No hay más canciones en la cola. ¡Usa la pestaña de búsqueda para añadir algunas!
+                    No hay canciones en la cola. Usa la pestaña de búsqueda para añadir algunas.
                   </div>
                 )}
               </div>
@@ -582,33 +554,34 @@ export default function App() {
                   </button>
                 </div>
 
-                {searchResults.length > 0 && (
-                  <div className="space-y-1 mt-4">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider my-3">
-                      Resultados de búsqueda
-                    </p>
-                    {searchResults.map((track, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-3 hover:bg-white/5 border-b border-white/5 transition rounded-xl"
-                      >
-                        <div className="flex items-center space-x-3 overflow-hidden">
-                          <div className="truncate">
-                            <p className="text-sm font-semibold text-gray-200 truncate">{track.title}</p>
-                            <p className="text-xs text-gray-400 truncate">{track.author}</p>
-                          </div>
+                <div className="space-y-1 mt-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider my-3">
+                    Canciones recomendadas
+                  </p>
+                  {displayedSearchResults.map((track, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 hover:bg-white/5 border-b border-white/5 transition rounded-xl"
+                    >
+                      <div className="flex items-center space-x-3 overflow-hidden">
+                        {track.thumbnail && (
+                          <img src={track.thumbnail} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                        )}
+                        <div className="truncate">
+                          <p className="text-sm font-semibold text-gray-200 truncate">{track.title}</p>
+                          <p className="text-xs text-gray-400 truncate">{track.author}</p>
                         </div>
-                        <button
-                          onClick={() => handlePlaySong(track.url)}
-                          className="px-3.5 py-1.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-lg text-xs font-medium flex items-center space-x-1.5 transition"
-                        >
-                          <Icons.ListPlus />
-                          <span>Añadir a la cola</span>
-                        </button>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <button
+                        onClick={() => handlePlaySong(track.url || track.title)}
+                        className="px-3.5 py-1.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-lg text-xs font-medium flex items-center space-x-1.5 transition"
+                      >
+                        <Icons.ListPlus />
+                        <span>Añadir a la cola</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -618,11 +591,11 @@ export default function App() {
 
       </div>
 
-      {/* Bottom Integrated Controls Bar (Sin Shuffle, Repeat ni SkipPrev) */}
-      <footer className="relative z-20 bg-[#0d0f17]/95 border-t border-white/10 px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4">
+      {/* Bottom Integrated Controls Bar (Línea de tiempo no interactuable, sin volumen) */}
+      <footer className="relative z-20 bg-[#0d0f17]/95 border-t border-white/10 px-6 py-3 flex items-center justify-between gap-6">
         
         {/* Left Track Info */}
-        <div className="flex items-center space-x-3 w-full md:w-1/4">
+        <div className="flex items-center space-x-3 w-1/3 max-w-[280px]">
           {currentTrack?.thumbnail && (
             <img
               src={currentTrack.thumbnail}
@@ -636,9 +609,9 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center Controls & Time Scrubber */}
-        <div className="flex flex-col items-center w-full md:w-2/4 max-w-xl space-y-1">
-          <div className="flex items-center space-x-5">
+        {/* Center Controls & NON-INTERACTIVE Time Scrubber */}
+        <div className="flex flex-col items-center flex-1 max-w-xl space-y-1">
+          <div className="flex items-center space-x-4">
             <button
               onClick={togglePause}
               className="p-2.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95 transition shadow-lg shadow-indigo-600/30"
@@ -655,42 +628,17 @@ export default function App() {
             </button>
           </div>
 
-          {/* Scrubber Slider */}
+          {/* Scrubber Visual (NO INTERACTUABLE) */}
           <div className="w-full flex items-center space-x-2 text-[11px] text-gray-400 font-mono">
             <span>{progress.current.label}</span>
-            <div className="relative flex-1 cursor-pointer flex items-center">
-              <input
-                type="range"
-                min={0}
-                max={progress.total.value || 100}
-                value={progress.current.value || 0}
-                onChange={(e) => handleScrubberChange(Number(e.target.value))}
-                className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
+            <div className="relative flex-1 flex items-center h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.max(0, progress.progress))}%` }}
               />
             </div>
             <span>{progress.total.label}</span>
           </div>
-        </div>
-
-        {/* Right Volume Controls */}
-        <div className="flex items-center justify-end space-x-2 w-full md:w-1/4">
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            className="text-gray-400 hover:text-white transition"
-          >
-            {isMuted || volume === 0 ? <Icons.VolumeMute /> : <Icons.VolumeMax />}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={isMuted ? 0 : volume}
-            onChange={(e) => {
-              setVolume(Number(e.target.value));
-              if (isMuted) setIsMuted(false);
-            }}
-            className="w-20 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
-          />
         </div>
 
       </footer>
