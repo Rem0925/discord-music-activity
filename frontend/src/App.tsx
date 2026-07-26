@@ -1,11 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { io, Socket } from 'socket.io-client';
-import { 
-  Music, Play, SkipForward, Search, ListMusic, Mic2, AlertCircle, 
-  Pause, Trash2, X, Users, Wrench 
-} from 'lucide-react';
-import './App.css';
 
 interface Track {
   title: string;
@@ -13,34 +8,147 @@ interface Track {
   url?: string;
   thumbnail?: string;
   requestedBy?: { username: string; avatar: string };
+  duration?: string;
+  durationSec?: number;
 }
 
 const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || 'PON_TU_CLIENT_ID_AQUI';
 const discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
 
 const MOCK_USERS = [
-  { username: 'Rem (Tú)', avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' },
-  { username: 'Alex_DJ', avatar: 'https://cdn.discordapp.com/embed/avatars/1.png' },
-  { username: 'Sara_Music', avatar: 'https://cdn.discordapp.com/embed/avatars/2.png' }
+  { username: 'Rem (Tú)', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+  { username: 'Alex_DJ', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' },
+  { username: 'Elena_DJ', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+  { username: 'CarlosG', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' }
 ];
 
-function App() {
-  const [status, setStatus] = useState<string>('Conectando a Discord...');
-  const [isMockMode, setIsMockMode] = useState<boolean>(false);
+const Icons = {
+  Play: () => <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>,
+  Pause: () => <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>,
+  SkipNext: () => <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>,
+  VolumeMax: () => (
+    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+    </svg>
+  ),
+  VolumeMute: () => (
+    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+      <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+    </svg>
+  ),
+  Search: () => (
+    <svg className="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+  ),
+  ListPlus: () => (
+    <svg className="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+  ),
+  Mic: () => (
+    <svg className="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 016 0v6a3 3 0 01-3 3z"/>
+    </svg>
+  ),
+  Trash: () => (
+    <svg className="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+    </svg>
+  ),
+  Discord: () => (
+    <svg className="w-5 h-5 fill-current" viewBox="0 0 127.14 96.36">
+      <path d="M107.7,8.07A105.15,107.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.89,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.42,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.91-72.13ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,45.92,53.87,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,45.92,96.12,53,91.08,65.69,84.69,65.69Z"/>
+    </svg>
+  ),
+  Sparkles: () => (
+    <svg className="w-3.5 h-3.5 fill-current text-yellow-400" viewBox="0 0 24 24">
+      <path d="M12 0l2.5 8.5L24 12l-9.5 3.5L12 24l-2.5-8.5L0 12l9.5-3.5z"/>
+    </svg>
+  ),
+  Lyrics: () => (
+    <svg className="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+    </svg>
+  ),
+  Heart: ({ filled }: { filled: boolean }) => (
+    <svg className={`w-5 h-5 ${filled ? 'fill-pink-500 text-pink-500' : 'fill-none stroke-current text-gray-300'}`} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.684a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+    </svg>
+  )
+};
+
+const AudioVisualizer = ({ isPlaying }: { isPlaying: boolean }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let animationFrameId: number;
+
+    let bars = Array.from({ length: 28 }, () => ({
+      height: Math.random() * 15 + 4,
+      targetHeight: Math.random() * 32 + 6,
+      speed: 0.15 + Math.random() * 0.1
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const width = canvas.width;
+      const height = canvas.height;
+      const barWidth = width / bars.length - 2;
+
+      bars.forEach((bar, i) => {
+        if (isPlaying) {
+          bar.height += (bar.targetHeight - bar.height) * bar.speed;
+          if (Math.abs(bar.height - bar.targetHeight) < 2) {
+            bar.targetHeight = Math.random() * (height * 0.8) + 6;
+          }
+        } else {
+          bar.height += (4 - bar.height) * 0.1;
+        }
+
+        const x = i * (barWidth + 2);
+        const y = (height - bar.height) / 2;
+
+        const gradient = ctx.createLinearGradient(0, y, 0, y + bar.height);
+        gradient.addColorStop(0, '#818CF8');
+        gradient.addColorStop(1, '#C084FC');
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(x, y, barWidth, bar.height, 3);
+        } else {
+          ctx.rect(x, y, barWidth, bar.height);
+        }
+        ctx.fill();
+      });
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [isPlaying]);
+
+  return <canvas ref={canvasRef} width={240} height={36} className="w-full h-9 opacity-85" />;
+};
+
+export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [channelId, setChannelId] = useState<string | null>(null);
   const [guildId, setGuildId] = useState<string | null>(null);
-  
-  const [query, setQuery] = useState<string>('');
-  const [suggestions, setSuggestions] = useState<Track[]>([]);
-  
+  const [isMockMode, setIsMockMode] = useState<boolean>(false);
+
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
   const [lyrics, setLyrics] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const [user, setUser] = useState<{ username: string; avatar: string }>(MOCK_USERS[0]);
-
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState({ 
     current: { label: '0:00', value: 0 }, 
@@ -48,34 +156,15 @@ function App() {
     progress: 0 
   });
 
-  const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchContainerRef = useRef<HTMLDivElement | null>(null);
-  const currentQueryRef = useRef<string>('');
+  const [volume, setVolume] = useState(80);
+  const [isMuted, setIsMuted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [rightPanelTab, setRightPanelTab] = useState<'lyrics' | 'queue' | 'search'>('search');
+  const [isLiked, setIsLiked] = useState(false);
+  const [user, setUser] = useState<{ username: string; avatar: string }>(MOCK_USERS[0]);
 
-  // --- Cierre automático del buscador al hacer clic fuera o presionar Escape ---
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-        setSuggestions([]);
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setSuggestions([]);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let newSocket: Socket | null = null;
@@ -83,15 +172,10 @@ function App() {
     async function setupDiscord() {
       try {
         await discordSdk.ready();
-        setStatus('✅ Conectado a Discord');
         setChannelId(discordSdk.channelId);
         setGuildId(discordSdk.guildId);
 
-        const rlog = (msg: string) => {
-          fetch('/api/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg }) }).catch(()=>null);
-        };
         try {
-          rlog("[Auth] Iniciando authorize con discordSdk...");
           const { code } = await discordSdk.commands.authorize({
             client_id: DISCORD_CLIENT_ID,
             response_type: "code",
@@ -99,18 +183,13 @@ function App() {
             prompt: "none",
             scope: ["identify", "guilds"],
           });
-          rlog(`[Auth] Código obtenido: ${code}`);
-          
-          rlog("[Auth] Solicitando token al backend en /api/token...");
           const response = await fetch('/api/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code })
           });
-          
           const tokenData = await response.json();
           const access_token = tokenData.access_token;
-          
           if (access_token) {
             await discordSdk.commands.authenticate({ access_token });
             const userRes = await fetch('https://discord.com/api/v10/users/@me', {
@@ -119,25 +198,23 @@ function App() {
             if (userRes.ok) {
               const u = await userRes.json();
               const avatarUrl = u.avatar 
-                  ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png`
-                  : `https://cdn.discordapp.com/embed/avatars/${Number(u.discriminator || 0) % 5}.png`;
+                ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png`
+                : `https://cdn.discordapp.com/embed/avatars/${Number(u.discriminator || 0) % 5}.png`;
               setUser({
                 username: u.global_name || u.username,
                 avatar: avatarUrl
               });
             }
           }
-        } catch (e: any) {
-          rlog(`[Auth] Exception en authenticate: ${e.message || e}`);
+        } catch (e) {
+          console.log("Discord Auth fallback", e);
         }
         
         newSocket = io();
         setupSocketListeners(newSocket, discordSdk.guildId);
       } catch (err) {
-        // --- MODO DE PRUEBA LOCAL (FUERA DE DISCORD) ---
-        console.log("No estamos dentro de un iframe de Discord. Activando Modo Prueba Local...");
+        // Modo de Prueba Local (Sin Discord)
         setIsMockMode(true);
-        setStatus('🛠️ Modo de Prueba Local (Sin Discord)');
         const mockGuild = 'mock-guild-1';
         const mockChannel = 'mock-channel-1';
         setGuildId(mockGuild);
@@ -155,27 +232,26 @@ function App() {
         }
       });
 
-      sock.on('disconnect', () => setStatus('❌ Desconectado del Servidor'));
-
       sock.on('queue_update', (data: { current: Track | null, tracks: Track[] }) => {
         setCurrentTrack(data.current);
         setQueue(data.tracks);
       });
 
-      sock.on('song_lyrics', (text: string | null) => setLyrics(text));
-      
-      sock.on('search_results', (results: Track[]) => {
-        // Solo mostrar sugerencias si el texto actual en el input coincide y es largo suficiente
-        if (currentQueryRef.current && currentQueryRef.current.trim().length > 2) {
-          setSuggestions(results);
+      // --- CAMBIO DE PESTAÑA AUTOMÁTICO SEGÚN LAS LETRAS ---
+      sock.on('song_lyrics', (text: string | null) => {
+        if (text && text !== "No se encontraron letras" && text !== "No se encontraron letras para esta canción." && text !== "Buscando letras...") {
+          setLyrics(text);
+          setRightPanelTab('lyrics'); // Si encuentra la letra, se queda/cambia a Letras
+        } else if (text === "No se encontraron letras" || text === "No se encontraron letras para esta canción.") {
+          setLyrics(null);
+          setRightPanelTab('search'); // Si no la encuentra, cambia automáticamente al buscador
         } else {
-          setSuggestions([]);
+          setLyrics(text);
         }
       });
       
-      sock.on('play_error', (data: { message: string }) => {
-        setErrorMsg(data.message);
-        setTimeout(() => setErrorMsg(null), 5000);
+      sock.on('search_results', (results: Track[]) => {
+        setSearchResults(results);
       });
 
       sock.on('pause_state', (data: { guildId: string, isPaused: boolean }) => {
@@ -205,46 +281,30 @@ function App() {
   }, []);
 
   const handleSearchChange = (val: string) => {
-    setQuery(val);
-    currentQueryRef.current = val;
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    
+    setSearchQuery(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
     if (val.trim().length > 2 && !val.startsWith('http')) {
-      debounceTimeout.current = setTimeout(() => {
+      searchDebounceRef.current = setTimeout(() => {
         socket?.emit('search_song', { query: val });
-      }, 400); 
+      }, 400);
     } else {
-      setSuggestions([]);
+      setSearchResults([]);
     }
   };
 
-  const clearSearch = () => {
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    setQuery('');
-    currentQueryRef.current = '';
-    setSuggestions([]);
-  };
+  const handlePlaySong = (songUrl?: string) => {
+    const query = songUrl || searchQuery;
+    if (!query || !query.trim()) return;
 
-  const playSong = (songUrl?: string) => {
-    const url = songUrl || query;
-    if (!url || !url.trim()) return;
-    
-    // Evitar que resultados pendientes del buscador abran la lista más tarde
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    
-    if (!channelId || !guildId) {
-      setErrorMsg("Debes unirte a un canal de voz de Discord para usar el bot.");
-      setTimeout(() => setErrorMsg(null), 5000);
-      return;
-    }
-
-    if (socket) {
-      socket.emit('play_song', { query: url, channelId, guildId, user });
-      clearSearch();
+    if (socket && guildId && channelId) {
+      socket.emit('play_song', { query, channelId, guildId, user });
+      setSearchQuery('');
+      setSearchResults([]);
     }
   };
 
-  const skipSong = () => {
+  const handleNextTrack = () => {
     if (socket && guildId) {
       socket.emit('skip_song', { guildId });
     }
@@ -252,474 +312,388 @@ function App() {
 
   const togglePause = () => {
     if (socket && guildId) {
-      // Usamos set_pause idempotente para evitar colisiones entre múltiples usuarios
       socket.emit('set_pause', { guildId, paused: !isPaused });
     }
   };
 
-  const removeSongFromQueue = (index: number, song: Track) => {
+  const handleRemoveFromQueue = (index: number, track: Track) => {
     if (socket && guildId) {
       socket.emit('remove_song', {
         guildId,
         index,
-        title: song.title,
-        url: song.url
+        title: track.title,
+        url: track.url
       });
     }
   };
 
+  const handleScrubberChange = (timeValueMs: number) => {
+    if (socket && guildId) {
+      socket.emit('seek_song', { guildId, timeMs: timeValueMs });
+    }
+  };
+
   return (
-    <div style={{ 
-      padding: '30px 20px 60px', 
-      fontFamily: 'Inter, system-ui, sans-serif', 
-      background: currentTrack?.thumbnail ? 'transparent' : '#121212', 
-      minHeight: '100vh', 
-      color: '#ffffff',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      position: 'relative',
-      overflowX: 'hidden'
-    }}>
+    <div className="relative h-screen w-full bg-[#0a0c12] text-gray-100 font-sans flex flex-col justify-between overflow-hidden select-none">
       
+      {/* Background Ambient Glow */}
       {currentTrack?.thumbnail && (
-        <div className="background-blur" style={{ backgroundImage: `url(${currentTrack.thumbnail})` }} />
+        <div 
+          className="absolute inset-0 bg-cover bg-center opacity-15 filter blur-3xl scale-125 transition-all duration-1000 pointer-events-none"
+          style={{ backgroundImage: `url(${currentTrack.thumbnail})` }}
+        />
       )}
 
-      {/* BARRA SUPERIOR MODO PRUEBA LOCAL (FUERA DE DISCORD) */}
-      {isMockMode && (
-        <div style={{
-          width: '100%',
-          maxWidth: '900px',
-          background: 'rgba(29, 185, 84, 0.15)',
-          border: '1px solid rgba(29, 185, 84, 0.4)',
-          borderRadius: '16px',
-          padding: '12px 20px',
-          marginBottom: '25px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          backdropFilter: 'blur(10px)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Wrench size={20} color="#1db954" />
-            <div>
-              <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1db954' }}>
-                Modo de Prueba Local (Sin Discord)
-              </div>
-              <div style={{ fontSize: '12px', color: '#b3b3b3' }}>
-                Puedes probar multijugador cambiando de usuario o en múltiples pestañas
-              </div>
+      {/* Edge-to-Edge Top Bar */}
+      <header className="relative z-10 flex items-center justify-between px-6 py-3 bg-[#11131c]/90 border-b border-white/10 backdrop-blur-md">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 rounded-lg bg-indigo-600/30 text-indigo-400 border border-indigo-500/30">
+            <Icons.Discord />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h1 className="font-bold text-sm sm:text-base tracking-wide text-white">
+                JamBot Player Activity
+              </h1>
+              <span className="flex items-center space-x-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>#General</span>
+              </span>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Users size={16} color="#b3b3b3" />
-            <span style={{ fontSize: '12px', color: '#b3b3b3' }}>Simular usuario:</span>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {MOCK_USERS.map((u, i) => {
-                const isSelected = user.username === u.username;
+        </div>
+
+        {/* Discord Voice / Local Users Selector */}
+        <div className="flex items-center space-x-3 bg-black/40 px-3 py-1 rounded-full border border-white/10 text-xs">
+          <Icons.Mic />
+          <span className="font-medium text-gray-400 hidden sm:inline">
+            {isMockMode ? 'Simular Usuario:' : 'Oyentes:'}
+          </span>
+          <div className="flex space-x-1">
+            {MOCK_USERS.map((u, idx) => {
+              const isSelected = user.username === u.username;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setUser(u)}
+                  className={`relative transition-all rounded-full p-0.5 border ${
+                    isSelected ? 'border-indigo-400 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                  }`}
+                  title={`Simular como ${u.username}`}
+                >
+                  <img src={u.avatar} alt={u.username} className="w-6 h-6 rounded-full object-cover" />
+                  {idx === 0 && (
+                    <span className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
+                      <Icons.Sparkles />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Workspace (Continuous 2-Column Split) */}
+      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
+        
+        {/* LEFT COLUMN: Cover, Info & Canvas Visualizer */}
+        <section className="md:col-span-5 lg:col-span-4 bg-[#0e111a]/80 backdrop-blur-lg border-r border-white/10 p-6 flex flex-col items-center justify-between overflow-y-auto">
+          
+          {currentTrack ? (
+            <div className="w-full flex flex-col items-center my-auto space-y-5">
+              {/* Artwork Container */}
+              <div className="relative group/art max-w-[240px] sm:max-w-[280px] w-full aspect-square">
+                <div className={`absolute -inset-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur-xl transition-all duration-700 ${!isPaused ? 'opacity-40 scale-105' : 'opacity-10 scale-95'}`} />
+                <img
+                  src={currentTrack.thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80'}
+                  alt={currentTrack.title}
+                  className="w-full h-full object-cover rounded-xl shadow-2xl relative z-10 border border-white/10"
+                />
+                <button 
+                  onClick={() => setIsLiked(!isLiked)}
+                  className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/50 backdrop-blur-md transition-transform hover:scale-110 active:scale-95"
+                >
+                  <Icons.Heart filled={isLiked} />
+                </button>
+              </div>
+
+              {/* Song Meta */}
+              <div className="text-center w-full px-2 space-y-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight line-clamp-1">
+                  {currentTrack.title}
+                </h2>
+                <p className="text-sm text-indigo-300 font-medium line-clamp-1">
+                  {currentTrack.author}
+                </p>
+                {currentTrack.requestedBy && (
+                  <div className="inline-flex items-center space-x-1.5 pt-1 text-xs text-gray-400">
+                    <span>Pedida por</span>
+                    {currentTrack.requestedBy.avatar ? (
+                      <img src={currentTrack.requestedBy.avatar} className="w-4 h-4 rounded-full" alt="" />
+                    ) : (
+                      <span>👤</span>
+                    )}
+                    <span className="font-semibold text-gray-300">{currentTrack.requestedBy.username}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Audio Spectrum Visualizer */}
+              <div className="w-full max-w-[240px]">
+                <AudioVisualizer isPlaying={!isPaused} />
+              </div>
+            </div>
+          ) : (
+            <div className="my-auto text-center space-y-3 opacity-60">
+              <div className="w-24 h-24 mx-auto rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <Icons.Play />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Listo para reproducir</h3>
+              <p className="text-xs text-gray-400">Busca una canción o pega un enlace para comenzar</p>
+            </div>
+          )}
+
+        </section>
+
+        {/* RIGHT COLUMN: Live Lyrics / Queue / Search */}
+        <section className="md:col-span-7 lg:col-span-8 bg-[#0a0c12]/60 backdrop-blur-lg flex flex-col overflow-hidden">
+          
+          {/* Top Panel Controls / Navigation Tabs */}
+          <div className="flex items-center justify-between border-b border-white/10 px-6 py-3 bg-[#11131c]/50">
+            <div className="flex space-x-1 bg-black/40 p-1 rounded-xl border border-white/10">
+              {[
+                { id: 'lyrics' as const, label: 'Letra en Vivo', icon: Icons.Lyrics },
+                { id: 'queue' as const, label: `Cola (${queue.length})`, icon: Icons.ListPlus },
+                { id: 'search' as const, label: 'Buscar / Añadir', icon: Icons.Search }
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const active = rightPanelTab === tab.id;
                 return (
                   <button
-                    key={i}
-                    onClick={() => setUser(u)}
-                    style={{
-                      background: isSelected ? '#1db954' : '#282828',
-                      color: isSelected ? '#000' : '#fff',
-                      border: 'none',
-                      borderRadius: '50px',
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
+                    key={tab.id}
+                    onClick={() => setRightPanelTab(tab.id)}
+                    className={`flex items-center space-x-2 py-1.5 px-4 rounded-lg font-medium text-xs transition-all ${
+                      active
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
                   >
-                    {u.username}
+                    <Icon />
+                    <span>{tab.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-        </div>
-      )}
 
-      {errorMsg && (
-        <div style={{ position: 'fixed', top: '20px', right: '20px', background: '#da373c', padding: '15px 25px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', zIndex: 100, animation: 'fadeIn 0.3s' }}>
-          <AlertCircle size={24} /> {errorMsg}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-        <Music size={36} color="#1db954" />
-        <h1 style={{ fontSize: '32px', fontWeight: '800', margin: '0', color: '#ffffff', letterSpacing: '-0.5px' }}>
-          JamBot <span style={{ color: '#1db954' }}>Player</span>
-        </h1>
-      </div>
-
-      {/* Estado de conexión */}
-      <div style={{
-        fontSize: '13px',
-        color: status.includes('✅') || status.includes('🛠️') ? '#1db954' : '#ffaa00',
-        background: 'rgba(255,255,255,0.06)',
-        padding: '5px 14px',
-        borderRadius: '50px',
-        marginBottom: '25px',
-        border: '1px solid rgba(255,255,255,0.08)'
-      }}>
-        {status}
-      </div>
-      
-      {/* BUSCADOR DE CANCIONES (con soporte para clic fuera, Escape y botón limpiar) */}
-      <div 
-        ref={searchContainerRef}
-        style={{ position: 'relative', width: '100%', maxWidth: '650px', margin: '0 auto 40px', zIndex: 50 }}
-      >
-        <div style={{ 
-          display: 'flex', 
-          background: 'rgba(36, 36, 36, 0.95)', 
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '50px', 
-          padding: '6px 6px 6px 20px', 
-          alignItems: 'center', 
-          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(10px)',
-          transition: 'all 0.3s'
-        }}>
-          <Search size={20} color="#1db954" />
-          <input 
-            type="text" 
-            value={query}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="¿Qué quieres escuchar hoy? (Nombre o Enlace YouTube)"
-            style={{ flex: 1, padding: '12px 15px', background: 'transparent', border: 'none', color: 'white', fontSize: '16px', outline: 'none' }}
-            onKeyDown={(e) => e.key === 'Enter' && playSong()}
-          />
-          {query && (
-            <button
-              onClick={clearSearch}
-              title="Limpiar búsqueda"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#b3b3b3',
-                cursor: 'pointer',
-                padding: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                marginRight: '6px',
-                borderRadius: '50%'
-              }}
-            >
-              <X size={18} />
-            </button>
-          )}
-          <button 
-            onClick={() => playSong()} 
-            disabled={!query.trim()} 
-            style={{ 
-              background: '#1db954', color: '#000000', border: 'none', borderRadius: '50px', 
-              padding: '12px 28px', cursor: !query.trim() ? 'not-allowed' : 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px',
-              opacity: (!query.trim()) ? 0.5 : 1,
-              transition: 'all 0.2s',
-              boxShadow: !query.trim() ? 'none' : '0 4px 15px rgba(29, 185, 84, 0.4)'
-            }}>
-            <Play size={18} fill="black" /> Play
-          </button>
-        </div>
-        
-        {/* LISTA DE SUGERENCIAS */}
-        {suggestions.length > 0 && (
-          <ul style={{ 
-            position: 'absolute', 
-            top: '65px', 
-            left: '10px', 
-            right: '10px', 
-            background: 'rgba(32, 32, 32, 0.98)', 
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: '16px', 
-            padding: '8px 0', 
-            margin: '0', 
-            listStyle: 'none', 
-            textAlign: 'left', 
-            zIndex: 100, 
-            boxShadow: '0 16px 40px rgba(0,0,0,0.8)',
-            backdropFilter: 'blur(20px)',
-            maxHeight: '320px',
-            overflowY: 'auto'
-          }}>
-            {suggestions.map((song, i) => (
-              <li 
-                key={i} 
-                onClick={() => playSong(song.url)} 
-                style={{ 
-                  padding: '12px 20px', 
-                  borderBottom: i !== suggestions.length -1 ? '1px solid rgba(255,255,255,0.06)' : 'none', 
-                  cursor: 'pointer', 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  transition: 'background 0.2s'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(29, 185, 84, 0.15)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              >
-                <div style={{ overflow: 'hidden', flex: 1 }}>
-                  <div style={{ color: '#fff', fontSize: '15px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {song.title}
-                  </div>
-                  <div style={{ color: '#b3b3b3', fontSize: '13px', marginTop: '3px' }}>
-                    {song.author}
-                  </div>
-                </div>
-                <div style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  color: '#1db954',
-                  padding: '6px 14px',
-                  borderRadius: '50px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  flexShrink: 0
-                }}>
-                  <Play size={12} fill="#1db954" /> Reproducir
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* CONTENEDOR PRINCIPAL DEL REPRODUCTOR */}
-      {currentTrack ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', justifyContent: 'center', width: '100%', maxWidth: '950px' }}>
-          
-          {/* TARJETA DEL REPRODUCTOR */}
-          <div style={{ 
-            background: 'rgba(28, 28, 28, 0.85)', 
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(16px)',
-            padding: '30px', 
-            borderRadius: '24px', 
-            flex: '1', 
-            minWidth: '320px', 
-            maxWidth: '420px', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            boxShadow: '0 20px 50px rgba(0,0,0,0.5)' 
-          }}>
+          {/* Dynamic Content Panel */}
+          <div className="flex-1 overflow-y-auto p-6 relative">
             
-            <div style={{ 
-              width: '230px', 
-              height: '230px', 
-              borderRadius: '50%', 
-              backgroundImage: currentTrack?.thumbnail ? `url(${currentTrack.thumbnail})` : 'linear-gradient(135deg, #333, #111)', 
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              border: '6px solid #1db954', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              marginBottom: '25px', 
-              animation: isPaused ? 'none' : 'spin 8s linear infinite', 
-              boxShadow: '0 12px 35px rgba(0,0,0,0.6)' 
-            }}>
-              <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#121212', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #1db954' }}>
-                 <Music size={22} color="#1db954" />
-              </div>
-            </div>
-            
-            <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', textAlign: 'center', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '800' }}>{currentTrack.title}</h2>
-            <p style={{ margin: '0 0 15px 0', color: '#b3b3b3', fontSize: '16px' }}>{currentTrack.author}</p>
-            
-            {currentTrack.requestedBy && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.08)', padding: '6px 16px', borderRadius: '50px', marginBottom: '25px' }}>
-                {currentTrack.requestedBy.avatar ? (
-                  <img src={currentTrack.requestedBy.avatar} alt="avatar" style={{ width: '22px', height: '22px', borderRadius: '50%' }} />
+            {/* TAB: LYRICS */}
+            {rightPanelTab === 'lyrics' && (
+              <div className="h-full flex flex-col justify-center items-center text-center space-y-6 max-w-xl mx-auto py-8 overflow-y-auto">
+                {lyrics ? (
+                  <pre className="whitespace-pre-wrap font-sans text-base sm:text-lg font-medium leading-relaxed text-indigo-200 drop-shadow-[0_0_12px_rgba(129,140,248,0.4)]">
+                    {lyrics}
+                  </pre>
                 ) : (
-                  <span style={{ fontSize: '12px' }}>👤</span>
+                  <div className="my-auto text-gray-500 text-sm italic">
+                    Buscando o cargando letras sincronizadas...
+                  </div>
                 )}
-                <span style={{ fontSize: '13px', color: '#fff' }}>Pedido por <strong style={{ color: '#1db954' }}>{currentTrack.requestedBy.username}</strong></span>
               </div>
             )}
 
-            {/* BARRA DE PROGRESO */}
-            <div style={{ width: '100%', marginBottom: '25px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ width: '100%', height: '6px', background: '#333', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, Math.max(0, progress.progress))}%`, height: '100%', background: '#1db954', transition: 'width 0.4s ease' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#b3b3b3', fontWeight: 'bold' }}>
-                <span>{progress.current.label}</span>
-                <span>{progress.total.label}</span>
-              </div>
-            </div>
-
-            {/* CONTROLES */}
-            <div style={{ display: 'flex', gap: '15px' }}>
-              <button 
-                onClick={togglePause} 
-                style={{ 
-                  background: '#fff', color: '#000', border: 'none', padding: '14px 28px', borderRadius: '50px', 
-                  cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', 
-                  transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(255,255,255,0.2)' 
-                }}>
-                {isPaused ? <Play size={20} fill="#000" /> : <Pause size={20} fill="#000" />} {isPaused ? 'Reanudar' : 'Pausar'}
-              </button>
-              <button 
-                onClick={skipSong} 
-                style={{ 
-                  background: 'transparent', color: '#fff', border: '2px solid #b3b3b3', padding: '14px 28px', borderRadius: '50px', 
-                  cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', 
-                  transition: 'all 0.2s' 
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#fff'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#b3b3b3'; }}
-              >
-                <SkipForward size={20} /> Saltar
-              </button>
-            </div>
-          </div>
-
-          {/* TARJETA DE COLA Y LETRAS */}
-          <div style={{ flex: '1', minWidth: '320px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* COLA DE REPRODUCCIÓN (con botón para borrar de la lista) */}
-            <div style={{ 
-              background: 'rgba(28, 28, 28, 0.85)', 
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(16px)',
-              borderRadius: '24px', 
-              padding: '25px', 
-              flex: queue.length > 0 ? '1' : '0' 
-            }}>
-              <h3 style={{ margin: '0 0 15px 0', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px' }}>
-                <ListMusic size={20} color="#1db954" /> A continuación ({queue.length})
-              </h3>
-              {queue.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {queue.slice(0, 10).map((t, i) => (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        display: 'flex', 
-                        gap: '15px', 
-                        alignItems: 'center', 
-                        background: 'rgba(36, 36, 36, 0.7)', 
-                        padding: '10px 15px', 
-                        borderRadius: '12px',
-                        border: '1px solid rgba(255,255,255,0.04)',
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(45, 45, 45, 0.9)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(36, 36, 36, 0.7)'; }}
+            {/* TAB: QUEUE */}
+            {rightPanelTab === 'queue' && (
+              <div className="space-y-2 max-w-3xl mx-auto">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  A continuación en la cola
+                </p>
+                {queue.length > 0 ? (
+                  queue.map((track, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 transition-all duration-200 bg-black/30 border border-white/5 rounded-xl hover:bg-white/5 text-gray-300"
                     >
-                      <span style={{ color: '#1db954', fontWeight: 'bold', fontSize: '14px', width: '18px' }}>{i + 1}</span>
-                      <div style={{ overflow: 'hidden', flex: 1 }}>
-                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '14px', fontWeight: '600' }}>{t.title}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>
-                          <span style={{ color: '#b3b3b3', fontSize: '12px' }}>{t.author}</span>
-                          {t.requestedBy && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(29, 185, 84, 0.15)', border: '1px solid rgba(29, 185, 84, 0.3)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', color: '#1db954' }}>
-                              {t.requestedBy.avatar ? (
-                                <img src={t.requestedBy.avatar} alt="avatar" style={{ width: '14px', height: '14px', borderRadius: '50%' }} />
-                              ) : (
-                                <span style={{ fontSize: '10px' }}>👤</span>
-                              )}
-                              <span>Pedido por <strong>{t.requestedBy.username}</strong></span>
-                            </span>
-                          )}
+                      <div className="flex items-center space-x-3 overflow-hidden">
+                        <span className="w-5 text-center font-bold text-xs text-indigo-400">
+                          {idx + 1}
+                        </span>
+                        {track.thumbnail && (
+                          <img src={track.thumbnail} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                        )}
+                        <div className="truncate">
+                          <p className="text-sm font-semibold text-gray-200 truncate">
+                            {track.title}
+                          </p>
+                          <div className="flex items-center space-x-2 text-xs text-gray-400">
+                            <span>{track.author}</span>
+                            {track.requestedBy && (
+                              <span className="text-[11px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                                Pedido por {track.requestedBy.username}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      
-                      {/* Botón Borrar de la Lista (sincronizado para múltiples usuarios) */}
+
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeSongFromQueue(i, t);
-                        }}
-                        title="Eliminar de la cola"
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#888',
-                          cursor: 'pointer',
-                          padding: '8px',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = '#ff5555';
-                          e.currentTarget.style.background = 'rgba(255, 85, 85, 0.15)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = '#888';
-                          e.currentTarget.style.background = 'transparent';
-                        }}
+                        onClick={() => handleRemoveFromQueue(idx, track)}
+                        className="p-2 text-gray-400 hover:text-rose-400 transition rounded-lg hover:bg-rose-500/10"
+                        title="Quitar de la cola"
                       >
-                        <Trash2 size={18} />
+                        <Icons.Trash />
                       </button>
                     </div>
-                  ))}
-                  {queue.length > 10 && (
-                    <p style={{ fontSize: '13px', color: '#b3b3b3', textAlign: 'center', margin: '5px 0 0' }}>
-                      + {queue.length - 10} canciones más en la cola
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p style={{ color: '#b3b3b3', fontSize: '14px', margin: 0 }}>No hay canciones en cola.</p>
-              )}
-            </div>
-
-            {/* LETRAS */}
-            {lyrics && (
-              <div style={{ 
-                background: 'rgba(28, 28, 28, 0.85)', 
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(16px)',
-                borderRadius: '24px', 
-                padding: '25px', 
-                maxHeight: '380px', 
-                overflowY: 'auto' 
-              }}>
-                <h3 style={{ margin: '0 0 15px 0', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px', position: 'sticky', top: '-25px', background: '#1c1c1c', paddingBottom: '10px', zIndex: 5 }}>
-                  <Mic2 size={20} color="#1db954" /> Letra Oficial
-                </h3>
-                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '16px', fontWeight: 500, textAlign: 'center', color: '#b3b3b3', lineHeight: '1.8', margin: 0 }}>
-                  {lyrics}
-                </pre>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-gray-500 text-sm">
+                    No hay más canciones en la cola. ¡Usa la pestaña de búsqueda para añadir algunas!
+                  </div>
+                )}
               </div>
             )}
+
+            {/* TAB: SEARCH */}
+            {rightPanelTab === 'search' && (
+              <div className="space-y-4 max-w-3xl mx-auto">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handlePlaySong()}
+                      placeholder="Buscar canción, artista o pegar URL..."
+                      className="w-full bg-black/40 border border-white/15 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 transition"
+                    />
+                    <div className="absolute left-3.5 top-3.5 text-gray-400">
+                      <Icons.Search />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handlePlaySong()}
+                    disabled={!searchQuery.trim()}
+                    className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Reproducir
+                  </button>
+                </div>
+
+                {searchResults.length > 0 && (
+                  <div className="space-y-1 mt-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider my-3">
+                      Resultados de búsqueda
+                    </p>
+                    {searchResults.map((track, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 hover:bg-white/5 border-b border-white/5 transition rounded-xl"
+                      >
+                        <div className="flex items-center space-x-3 overflow-hidden">
+                          <div className="truncate">
+                            <p className="text-sm font-semibold text-gray-200 truncate">{track.title}</p>
+                            <p className="text-xs text-gray-400 truncate">{track.author}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handlePlaySong(track.url)}
+                          className="px-3.5 py-1.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-lg text-xs font-medium flex items-center space-x-1.5 transition"
+                        >
+                          <Icons.ListPlus />
+                          <span>Añadir a la cola</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
 
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#b3b3b3', opacity: 0.7, margin: '60px 0' }}>
-          <Music size={72} style={{ marginBottom: '20px', color: '#1db954' }} />
-          <h2 style={{ margin: '0 0 8px 0', fontWeight: '700', fontSize: '26px', color: '#fff' }}>Listo para la Jam</h2>
-          <p style={{ fontSize: '16px', color: '#aaa' }}>Busca tu canción favorita o pega un link para comenzar.</p>
-        </div>
-      )}
+        </section>
 
-      <style>{`
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-      `}</style>
+      </div>
+
+      {/* Bottom Integrated Controls Bar (Sin Shuffle, Repeat ni SkipPrev) */}
+      <footer className="relative z-20 bg-[#0d0f17]/95 border-t border-white/10 px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4">
+        
+        {/* Left Track Info */}
+        <div className="flex items-center space-x-3 w-full md:w-1/4">
+          {currentTrack?.thumbnail && (
+            <img
+              src={currentTrack.thumbnail}
+              alt=""
+              className="w-11 h-11 rounded object-cover flex-shrink-0 border border-white/10"
+            />
+          )}
+          <div className="truncate">
+            <h4 className="text-xs sm:text-sm font-bold text-white truncate">{currentTrack?.title || 'Sin canción'}</h4>
+            <p className="text-[11px] text-gray-400 truncate">{currentTrack?.author || 'Selecciona una canción'}</p>
+          </div>
+        </div>
+
+        {/* Center Controls & Time Scrubber */}
+        <div className="flex flex-col items-center w-full md:w-2/4 max-w-xl space-y-1">
+          <div className="flex items-center space-x-5">
+            <button
+              onClick={togglePause}
+              className="p-2.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95 transition shadow-lg shadow-indigo-600/30"
+              title={isPaused ? 'Reanudar' : 'Pausar'}
+            >
+              {isPaused ? <Icons.Play /> : <Icons.Pause />}
+            </button>
+            <button 
+              onClick={handleNextTrack} 
+              className="text-gray-300 hover:text-white transition p-2 rounded-full hover:bg-white/10"
+              title="Saltar canción"
+            >
+              <Icons.SkipNext />
+            </button>
+          </div>
+
+          {/* Scrubber Slider */}
+          <div className="w-full flex items-center space-x-2 text-[11px] text-gray-400 font-mono">
+            <span>{progress.current.label}</span>
+            <div className="relative flex-1 cursor-pointer flex items-center">
+              <input
+                type="range"
+                min={0}
+                max={progress.total.value || 100}
+                value={progress.current.value || 0}
+                onChange={(e) => handleScrubberChange(Number(e.target.value))}
+                className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
+              />
+            </div>
+            <span>{progress.total.label}</span>
+          </div>
+        </div>
+
+        {/* Right Volume Controls */}
+        <div className="flex items-center justify-end space-x-2 w-full md:w-1/4">
+          <button
+            onClick={() => setIsMuted(!isMuted)}
+            className="text-gray-400 hover:text-white transition"
+          >
+            {isMuted || volume === 0 ? <Icons.VolumeMute /> : <Icons.VolumeMax />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={isMuted ? 0 : volume}
+            onChange={(e) => {
+              setVolume(Number(e.target.value));
+              if (isMuted) setIsMuted(false);
+            }}
+            className="w-20 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
+          />
+        </div>
+
+      </footer>
     </div>
   );
 }
-
-export default App;
