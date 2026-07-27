@@ -743,9 +743,11 @@ client.once("ready", () => {
 
 async function startServer() {
   try {
-    await player.extractors.register(YoutubeExtractor, {});
+    await player.extractors.register(YoutubeExtractor, {
+      cookie: process.env.YOUTUBE_COOKIE || undefined,
+    });
     await player.extractors.loadMulti(DefaultExtractors);
-    console.log("✅ Extractores de música cargados correctamente");
+    console.log("✅ Extractores de música cargados correctamente" + (process.env.YOUTUBE_COOKIE ? " (con sesión Cookie de YouTube)" : ""));
   } catch (err) {
     console.error("⚠️ Advertencia cargando extractores de música:", err.message);
   }
