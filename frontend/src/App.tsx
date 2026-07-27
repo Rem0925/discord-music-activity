@@ -12,7 +12,7 @@ interface Track {
   isAutoplay?: boolean;
 }
 
-const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || 'PON_TU_CLIENT_ID_AQUI';
+const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || '1529520646151737374';
 const discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
 
 const MOCK_USERS = [

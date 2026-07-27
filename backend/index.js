@@ -8,10 +8,20 @@ const { createServer } = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.get("/api/config", (req, res) => {
+  res.json({
+    clientId:
+      process.env.DISCORD_CLIENT_ID ||
+      process.env.VITE_DISCORD_CLIENT_ID ||
+      "1529520646151737374",
+  });
+});
 const server = createServer(app);
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
@@ -36,7 +46,10 @@ app.post("/api/token", async (req, res) => {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: process.env.DISCORD_CLIENT_ID,
+        client_id:
+          process.env.DISCORD_CLIENT_ID ||
+          process.env.VITE_DISCORD_CLIENT_ID ||
+          "1529520646151737374",
         client_secret: process.env.DISCORD_CLIENT_SECRET,
         grant_type: "authorization_code",
         code: req.body.code,
@@ -718,8 +731,8 @@ const frontendDist = path.join(__dirname, "../frontend/dist");
 if (require("fs").existsSync(frontendDist)) {
   console.log("📦 Servidor Express sirviendo la interfaz frontend compilada desde /frontend/dist");
   app.use(express.static(frontendDist));
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api")) return next();
+  app.get(/(.*)/, (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/socket.io")) return next();
     res.sendFile(path.join(frontendDist, "index.html"));
   });
 }
