@@ -743,11 +743,15 @@ client.once("ready", () => {
 
 async function startServer() {
   try {
+    const cookieStr = process.env.YOUTUBE_COOKIE ? process.env.YOUTUBE_COOKIE.trim() : "";
+    const hasCookie = cookieStr.length > 0;
+    console.log(`🍪 Estado de YOUTUBE_COOKIE en entorno Render: ${hasCookie ? `ACTIVA (${cookieStr.length} caracteres detectados)` : "NO DETECTADA (vacía o no guardada)"}`);
+
     await player.extractors.register(YoutubeExtractor, {
-      cookie: process.env.YOUTUBE_COOKIE || undefined,
+      cookie: hasCookie ? cookieStr : undefined,
     });
     await player.extractors.loadMulti(DefaultExtractors);
-    console.log("✅ Extractores de música cargados correctamente" + (process.env.YOUTUBE_COOKIE ? " (con sesión Cookie de YouTube)" : ""));
+    console.log("✅ Extractores de música cargados correctamente" + (hasCookie ? " (con sesión Cookie autenticada de YouTube)" : ""));
   } catch (err) {
     console.error("⚠️ Advertencia cargando extractores de música:", err.message);
   }
