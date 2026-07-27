@@ -713,21 +713,44 @@ io.on("connection", (socket) => {
   });
 });
 
-client.once("clientReady", () => {
+// Servir archivos estáticos del frontend compilado en producción (dist)
+const frontendDist = path.join(__dirname, "../frontend/dist");
+if (require("fs").existsSync(frontendDist)) {
+  console.log("📦 Servidor Express sirviendo la interfaz frontend compilada desde /frontend/dist");
+  app.use(express.static(frontendDist));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
+
+client.once("ready", () => {
   console.log(`🤖 Bot iniciado correctamente como ${client.user.tag}`);
 });
 
 async function startServer() {
-  await player.extractors.register(YoutubeExtractor, {});
-  await player.extractors.loadMulti(DefaultExtractors);
-  console.log("✅ Extractores de música cargados");
+  try {
+    await player.extractors.register(YoutubeExtractor, {});
+    await player.extractors.loadMulti(DefaultExtractors);
+    console.log("✅ Extractores de música cargados correctamente");
+  } catch (err) {
+    console.error("⚠️ Advertencia cargando extractores de música:", err.message);
+  }
 
   const PORT = process.env.PORT || 3001;
   server.listen(PORT, () => {
-    console.log(`🌐 Servidor API y WebSockets en el puerto ${PORT}`);
+    console.log(`🌐 Servidor API, WebSockets y Frontend escuchando en el puerto ${PORT}`);
   });
 
-  client.login(process.env.DISCORD_TOKEN);
+  if (process.env.DISCORD_TOKEN) {
+    try {
+      await client.login(process.env.DISCORD_TOKEN);
+    } catch (loginErr) {
+      console.error("❌ Error al iniciar sesión en Discord con DISCORD_TOKEN:", loginErr.message);
+    }
+  } else {
+    console.warn("⚠️ NO se proporcionó DISCORD_TOKEN en .env. El bot funcionará únicamente en Modo Prueba Local.");
+  }
 }
 
 startServer();

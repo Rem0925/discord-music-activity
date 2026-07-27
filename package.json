@@ -6,6 +6,8 @@
     "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan.bold,magenta.bold\" \"npm run start:backend\" \"npm run start:frontend\"",
     "start:backend": "cd backend && node index.js",
     "start:frontend": "cd frontend && npm run dev -- --host",
+    "build": "cd frontend && npm install && npm run build && cd ../backend && npm install",
+    "start:prod": "cd backend && node index.js",
     "tunnel": "./cloudflared tunnel --url http://localhost:5173",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
