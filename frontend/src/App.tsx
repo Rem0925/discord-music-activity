@@ -16,19 +16,78 @@ const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || '15295206461
 const discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
 
 const MOCK_USERS = [
-  { username: 'Rem (Tú)', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+  { username: 'Usuario', avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' },
   { username: 'Alex_DJ', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' },
   { username: 'Elena_DJ', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
   { username: 'CarlosG', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' }
 ];
 
-const SEARCH_RESULTS_MOCK: Track[] = [
+const BASE_RECOMMENDED_POOL: Track[] = [
   { title: 'Levitating', author: 'Dua Lipa', url: 'https://www.youtube.com/watch?v=TUVcZfQe-Kw' },
   { title: 'As It Was', author: 'Harry Styles', url: 'https://www.youtube.com/watch?v=H5v3kku4y6Q' },
   { title: 'Save Your Tears', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=XXYlFuWEuKI' },
   { title: 'Blinding Lights', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=4NRXx6U8ABQ' },
-  { title: 'Starboy (feat. Daft Punk)', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=34Na4j8AVgA' }
+  { title: 'Starboy (feat. Daft Punk)', author: 'The Weeknd', url: 'https://www.youtube.com/watch?v=34Na4j8AVgA' },
+  { title: 'Bad Guy', author: 'Billie Eilish', url: 'https://www.youtube.com/watch?v=DyDfgMOUjCI' },
+  { title: 'Viva La Vida', author: 'Coldplay', url: 'https://www.youtube.com/watch?v=dvgZkm1xWPE' },
+  { title: 'Believer', author: 'Imagine Dragons', url: 'https://www.youtube.com/watch?v=7wtfhZwyrcc' },
+  { title: 'Get Lucky', author: 'Daft Punk', url: 'https://www.youtube.com/watch?v=5NV6Rdv1a3I' },
+  { title: 'Do I Wanna Know?', author: 'Arctic Monkeys', url: 'https://www.youtube.com/watch?v=bpOSxM0rNPM' },
+  { title: 'Tití Me Preguntó', author: 'Bad Bunny', url: 'https://www.youtube.com/watch?v=Cr8K88UcO0s' },
+  { title: 'Despechá', author: 'ROSALÍA', url: 'https://www.youtube.com/watch?v=oWEeL5G1hSA' },
+  { title: 'Sunflower', author: 'Post Malone & Swae Lee', url: 'https://www.youtube.com/watch?v=ApXoWvfEYVU' },
+  { title: 'Shape of You', author: 'Ed Sheeran', url: 'https://www.youtube.com/watch?v=JGwWNGJdvx8' },
+  { title: 'Cruel Summer', author: 'Taylor Swift', url: 'https://www.youtube.com/watch?v=ic8j13piAhQ' },
+  { title: 'Feel Good Inc.', author: 'Gorillaz', url: 'https://www.youtube.com/watch?v=HyHNuVaZJ-k' },
+  { title: 'Lofi Hip Hop Radio', author: 'Lofi Girl', url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk' },
+  { title: 'Bohemian Rhapsody', author: 'Queen', url: 'https://www.youtube.com/watch?v=fJ9rUzIMcZQ' },
+  { title: 'Smells Like Teen Spirit', author: 'Nirvana', url: 'https://www.youtube.com/watch?v=hTWKbfoikeg' },
+  { title: 'In The End', author: 'Linkin Park', url: 'https://www.youtube.com/watch?v=eVTXPUF4Oz4' },
+  { title: 'Flowers', author: 'Miley Cyrus', url: 'https://www.youtube.com/watch?v=G7KNmW9a75Y' },
+  { title: 'Heat Waves', author: 'Glass Animals', url: 'https://www.youtube.com/watch?v=mRD0-GxqHVo' },
+  { title: 'Stay', author: 'The Kid LAROI & Justin Bieber', url: 'https://www.youtube.com/watch?v=kTJczUoc26U' },
+  { title: 'Montero', author: 'Lil Nas X', url: 'https://www.youtube.com/watch?v=6jw18VbNlB8' },
+  { title: 'Watermelon Sugar', author: 'Harry Styles', url: 'https://www.youtube.com/watch?v=E07s5ZYygMg' }
 ];
+
+const SAVED_TRACKS_KEY = 'jambot_saved_recommended_tracks';
+
+function getSavedTracks(): Track[] {
+  try {
+    const raw = localStorage.getItem(SAVED_TRACKS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveTrackToMemory(track: Track) {
+  try {
+    if (!track || !track.title || !track.author) return;
+    const existing = getSavedTracks();
+    const isDup = existing.some(t => t.title.toLowerCase() === track.title.toLowerCase());
+    if (!isDup) {
+      const updated = [{ title: track.title, author: track.author, url: track.url }, ...existing].slice(0, 40);
+      localStorage.setItem(SAVED_TRACKS_KEY, JSON.stringify(updated));
+    }
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
+function getRotatedRecommendations(count = 5): Track[] {
+  const saved = getSavedTracks();
+  const combined: Track[] = [...saved];
+  BASE_RECOMMENDED_POOL.forEach(poolTrack => {
+    if (!combined.some(t => t.title.toLowerCase() === poolTrack.title.toLowerCase())) {
+      combined.push(poolTrack);
+    }
+  });
+
+  const shuffled = [...combined].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
 
 const Icons = {
   Play: () => <svg className="w-5 h-5 sm:w-6 sm:h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>,
@@ -67,11 +126,6 @@ const Icons = {
   Lyrics: () => (
     <svg className="w-4 h-4 sm:w-5 sm:h-5 stroke-current" fill="none" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
-    </svg>
-  ),
-  Heart: ({ filled }: { filled: boolean }) => (
-    <svg className={`w-4 h-4 sm:w-5 sm:h-5 ${filled ? 'fill-pink-500 text-pink-500 scale-110' : 'fill-none stroke-current text-gray-300'} transition-all duration-200`} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.684a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
     </svg>
   ),
   MusicNote: () => (
@@ -163,8 +217,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [rightPanelTab, setRightPanelTab] = useState<'lyrics' | 'queue' | 'search'>('search');
-  const [isLiked, setIsLiked] = useState(false);
   const [user, setUser] = useState<{ username: string; avatar: string }>(MOCK_USERS[0]);
+  const [recommendedTracks, setRecommendedTracks] = useState<Track[]>(() => getRotatedRecommendations(5));
 
   // Toast / Feedback Notification State
   const [toast, setToast] = useState<{ message: string; type: 'info' | 'success' | 'warning' } | null>(null);
@@ -250,6 +304,10 @@ export default function App() {
       sock.on('queue_update', (data: { current: Track | null, tracks: Track[] }) => {
         setCurrentTrack(data.current);
         setQueue(data.tracks);
+        if (data.current) saveTrackToMemory(data.current);
+        if (data.tracks && Array.isArray(data.tracks)) {
+          data.tracks.forEach(t => saveTrackToMemory(t));
+        }
       });
 
       sock.on('autoplay_state', (data: { guildId: string, isAutoplay: boolean }) => {
@@ -301,6 +359,19 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRecommendedTracks(getRotatedRecommendations(5));
+    }, 45000); // Rotar cada 45 segundos
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (currentTrack) {
+      saveTrackToMemory(currentTrack);
+    }
+  }, [currentTrack]);
+
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -325,6 +396,11 @@ export default function App() {
 
     if (socket && guildId && channelId) {
       socket.emit('play_song', { query, channelId, guildId, user });
+      saveTrackToMemory({
+        title: songTitle || query,
+        author: 'Canción guardada',
+        url: songUrl || query
+      });
       showToast(`✨ Canción añadida: ${songTitle || 'Solicitud enviada'}`, 'success');
       setSearchQuery('');
       setSearchResults([]);
@@ -366,18 +442,12 @@ export default function App() {
     }
   };
 
-  const toggleLike = () => {
-    const nextState = !isLiked;
-    setIsLiked(nextState);
-    showToast(nextState ? '❤️ Añadida a tus canciones favoritas' : '💔 Eliminada de favoritos', 'info');
-  };
-
   // Resultados de búsqueda
   const displayedSearchResults = searchResults.length > 0
     ? searchResults
     : (searchQuery.trim() !== ''
-        ? SEARCH_RESULTS_MOCK.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.author.toLowerCase().includes(searchQuery.toLowerCase()))
-        : SEARCH_RESULTS_MOCK);
+        ? recommendedTracks.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.author.toLowerCase().includes(searchQuery.toLowerCase()))
+        : recommendedTracks);
 
   return (
     <div className="relative h-screen w-full bg-[#0a0c12] text-gray-100 font-sans flex flex-col justify-between overflow-hidden select-none">
@@ -460,13 +530,6 @@ export default function App() {
                   alt={currentTrack.title}
                   className="w-full h-full object-cover rounded-xl shadow-2xl relative z-10 border border-white/10 transition-transform duration-300 hover:scale-[1.02]"
                 />
-                <button 
-                  onClick={toggleLike}
-                  className="absolute top-2 right-2 sm:top-3 sm:right-3 z-20 p-1.5 sm:p-2 rounded-full bg-black/50 backdrop-blur-md transition-all duration-150 hover:scale-110 active:scale-90"
-                  title={isLiked ? 'Eliminar de favoritos' : 'Añadir a favoritos'}
-                >
-                  <Icons.Heart filled={isLiked} />
-                </button>
               </div>
 
               {/* Song Meta */}
@@ -656,9 +719,24 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1 mt-3">
-                  <p className="text-[11px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">
-                    Canciones recomendadas
-                  </p>
+                  <div className="flex items-center justify-between my-2">
+                    <p className="text-[11px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      {searchResults.length > 0 ? 'Resultados de búsqueda' : 'Canciones recomendadas'}
+                    </p>
+                    {searchResults.length === 0 && (
+                      <button
+                        onClick={() => {
+                          setRecommendedTracks(getRotatedRecommendations(5));
+                          showToast('🔄 Recomendaciones actualizadas', 'info');
+                        }}
+                        className="text-[10px] sm:text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center space-x-1 transition-all active:scale-95 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1 rounded-full border border-indigo-500/20"
+                        title="Rotar lista de recomendaciones"
+                      >
+                        <span>🔄</span>
+                        <span>Cambiar</span>
+                      </button>
+                    )}
+                  </div>
                   {displayedSearchResults.map((track, idx) => {
                     const isAdding = addingTrackIndex === idx;
                     return (

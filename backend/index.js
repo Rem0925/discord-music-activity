@@ -91,14 +91,19 @@ function formatTrack(t) {
     if (typeof t.requestedBy.displayAvatarURL === "function") {
       req = {
         username: t.requestedBy.username || t.requestedBy.globalName || "Usuario",
-        avatar: t.requestedBy.displayAvatarURL({ extension: "png", size: 128 }) || ""
+        avatar: t.requestedBy.displayAvatarURL({ extension: "png", size: 128 }) || "https://cdn.discordapp.com/embed/avatars/0.png"
       };
     } else {
       req = {
         username: t.requestedBy.username || "Usuario",
-        avatar: t.requestedBy.avatar || ""
+        avatar: t.requestedBy.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"
       };
     }
+  } else {
+    req = {
+      username: "Usuario",
+      avatar: "https://cdn.discordapp.com/embed/avatars/0.png"
+    };
   }
   return {
     title: t.title,
@@ -366,8 +371,11 @@ io.on("connection", (socket) => {
 
     const requestedByUser = user ? {
       username: user.username || "Usuario",
-      avatar: user.avatar || ""
-    } : null;
+      avatar: user.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"
+    } : {
+      username: "Usuario",
+      avatar: "https://cdn.discordapp.com/embed/avatars/0.png"
+    };
 
     // --- Modo Prueba Local sin Discord ---
     if (String(guildId).startsWith("mock-")) {
@@ -435,7 +443,7 @@ io.on("connection", (socket) => {
               t.requestedBy?.username === "🤖 Sugerida por el bot" || 
               t.requestedBy?.username === "♾️ Radio Autoplay" ||
               (t.requestedBy?.username && (t.requestedBy.username.includes("bot") || t.requestedBy.username.includes("Radio")))) {
-            try { queue.node.remove(i); } catch (_) {}
+            try { queue.tracks.removeOne((_, idx) => idx === i); } catch (_) {}
           }
         }
       }
@@ -510,10 +518,9 @@ io.on("connection", (socket) => {
             emitQueue(queue);
           }
         } else if (!enabled) {
-          const autoplays = queue.tracks.toArray().filter(t => t.requestedBy?.username?.includes("bot"));
-          autoplays.forEach(t => {
-            try { queue.node.remove(t); } catch (_) {}
-          });
+          try {
+            queue.tracks.remove((t) => t.isAutoplay || t.requestedBy?.username?.includes("bot") || t.requestedBy?.username?.includes("Radio"));
+          } catch (_) {}
           emitQueue(queue);
         }
       } catch (err) {
@@ -649,7 +656,9 @@ io.on("connection", (socket) => {
     }
     if (targetIndex !== -1 && targetIndex < tracksArray.length) {
       try {
-        queue.node.remove(targetIndex);
+        // En discord-player usamos removeOne por índice (0-based) directamente sobre la cola de tracks
+        // para asegurar que se elimine exactamente la canción seleccionada sin colisiones de ID
+        queue.tracks.removeOne((_, idx) => idx === targetIndex);
         emitQueue(queue);
       } catch (err) {
         console.error("Error al eliminar canción:", err);
